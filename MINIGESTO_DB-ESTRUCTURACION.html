@@ -19,7 +19,7 @@ h1{font-size:26px;margin:0 0 4px}
 .lg span{display:inline-flex;align-items:center;gap:5px;margin-right:12px}
 .dot{width:10px;height:10px;border-radius:50%;display:inline-block}
 .scroll{overflow-x:auto;padding-bottom:6px}
-#board{position:relative;min-width:1040px;display:grid;grid-template-columns:repeat(4,1fr);gap:70px 56px;padding:10px 4px}
+#board{position:relative;min-width:1040px;display:grid;grid-template-columns:repeat(4,1fr);gap:70px 76px;padding:10px 4px}
 #lines{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
 .cls{position:relative;background:var(--card);border:1.5px solid var(--bd);border-radius:8px;cursor:pointer;z-index:1;transition:border-color .15s,box-shadow .15s}
 .cls:hover,.cls.sel{border-color:var(--blue);box-shadow:0 0 0 3px color-mix(in srgb,var(--blue) 20%,transparent)}
@@ -41,6 +41,17 @@ h2{font-size:19px;margin:30px 0 10px}
 .leg{display:flex;gap:22px;flex-wrap:wrap;font-size:13px;color:var(--mut);margin-top:14px}
 .leg svg{vertical-align:middle;margin-right:6px}
 .mult{font:600 11px system-ui,sans-serif;fill:var(--tx)}
+.layers{display:flex;align-items:stretch;gap:10px;flex-wrap:wrap;margin:0 0 22px}
+.layers div{flex:1;min-width:150px;background:var(--card);border:1.5px solid var(--blue);border-radius:8px;padding:10px 12px;text-align:center}
+.layers div b{display:block;font-size:14px}
+.layers div small{color:var(--mut);font-size:12px}
+.layers i{align-self:center;font-style:normal;font-size:22px;color:var(--ln)}
+.layers div.disk{border-style:dashed;border-color:var(--ln)}
+.src{font-size:12px;color:var(--mut);margin:14px 0 0}
+.src a{color:var(--blue)}
+.src,.leg{display:none!important}
+@page{size:A4 landscape;margin:7mm}
+@media print{body{background:#fff}main{max-width:none;padding:0}.np,.hint,#detail{display:none!important}h1{font-size:20px}.sub{margin-bottom:8px}h2{margin:0 0 6px}.layers{margin-bottom:12px}}
 </style>
 </head>
 <body>
@@ -49,9 +60,19 @@ h2{font-size:19px;margin:30px 0 10px}
 <p class="sub">Paginación en disco + Buffer Pool con LRU + Índice B+ sobre <code>userID</code></p>
 
 
+<h2 style="margin-top:6px">Arquitectura por capas</h2>
+<div class="layers">
+  <div><b>main.cpp</b><small>menú CLI y consultas</small></div><i>→</i>
+  <div><b>BPlusTree</b><small>índice: userID → blockID</small></div><i>→</i>
+  <div><b>BufferPool</b><small>RAM · frames · LRU</small></div><i>→</i>
+  <div><b>StorageIO</b><small>lectura/escritura por bloque</small></div><i>→</i>
+  <div class="disk"><b>ratings.bin</b><small>disco · bloques de blockSize</small></div>
+</div>
+<h2 style="margin-top:0">Clases y relaciones</h2>
 <div class="scroll"><div id="board">
   <svg id="lines"><defs>
     <marker id="dia" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path d="M1 5 L8 1 L15 5 L8 9 Z" fill="var(--ln)"/></marker>
+    <marker id="diaE" viewBox="0 0 16 10" refX="15" refY="5" markerWidth="16" markerHeight="10" orient="auto"><path d="M1 5 L8 1 L15 5 L8 9 Z" fill="var(--ln)"/></marker>
     <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M1 1 L9 5 L1 9" fill="none" stroke="var(--ln)" stroke-width="1.5"/></marker>
   </defs></svg>
 </div></div>
@@ -64,8 +85,9 @@ h2{font-size:19px;margin:30px 0 10px}
   <span><svg width="46" height="12"><line x1="0" y1="6" x2="40" y2="6" stroke="var(--ln)" stroke-width="1.6" stroke-dasharray="5 4"/><path d="M34 2 L41 6 L34 10" fill="none" stroke="var(--ln)" stroke-width="1.5"/></svg>Dependencia</span>
 </div>
 
-<h2>¿Cómo se busca un registro? (flujo de una consulta)</h2>
-<div class="flow">
+<p class="src">Fuente original (mejor resolución): <a href="https://claude.ai/artifact/Si7RT7NuuxoQTKNPSiraVz">https://claude.ai/artifact/Si7RT7NuuxoQTKNPSiraVz</a></p>
+<h2 class="np">¿Cómo se busca un registro? (flujo de una consulta)</h2>
+<div class="flow np">
   <div>El usuario pide <b>userID = X</b> desde <code>main</code>.</div>
   <div><b>BPlusTree</b> baja por nodos internos; cada nodo se lee con <code>RequestPage(pageID, READ)</code>.</div>
   <div>La hoja devuelve el <b>blockID</b> donde está X (par <code>userID → blockID</code>).</div>
@@ -77,15 +99,15 @@ h2{font-size:19px;margin:30px 0 10px}
 <script>
 /* ===== Datos del diagrama (editar estados aquí) ===== */
 var C = [
- {id:"rec", n:"RatingRecord", st:"POD · 12 bytes", pos:[1,1], s:2,
+ {id:"rec", n:"RatingRecord", st:"registro de datos", pos:[1,1], s:2,
   attr:["userID : int","movieID : int","rating : float"], met:[],
-  det:["Registro mínimo del dataset; sin métodos.","Clave primaria: <code>userID</code>.","Tamaño fijo = 12 bytes, así se calcula cuántos caben por bloque."]},
+  det:["Registro mínimo del dataset; sin métodos.","Clave primaria: <code>userID</code>.","Tamaño fijo (<code>sizeof</code>): así se calcula cuántos registros caben por bloque."]},
  {id:"blk", n:"DataBlock", st:"página física en disco", pos:[2,1], s:2,
   attr:["blockID : int","recordCount : int","nextBlockID : int","pageType : PageType","records : vector&lt;RatingRecord&gt;"], met:[],
   det:["Ocupa exactamente <code>blockSize</code> bytes en el .bin.","<b>Estado actual:</b> ya tiene <code>blockID</code>, <code>recordCount</code>, <code>nextBlockID</code> y <code>records</code>. Falta <code>pageType</code> para los nodos del B+.","<code>maxRec = (blockSize − HEADER) / sizeof(RatingRecord)</code>.","<code>pageType</code> distingue DATA, INDEX_INTERNAL e INDEX_LEAF."]},
  {id:"frm", n:"Frame", st:"espacio del buffer en RAM", pos:[3,1], s:0,
-  attr:["frameID : int","page : DataBlock","pageID : int  (−1 = vacío)","isDirty : bool","pinCount : int","mode : AccessMode","lastUsedTick : size_t"], met:[],
-  det:["<b>Estado actual:</b> aún no existe como estructura; hoy cada slot del buffer es un <code>DataBlock</code> con <code>blockID = −1</code> cuando está libre.","<code>isDirty</code>: se modificó en RAM; al desalojar hay que escribirlo a disco.","<code>pinCount &gt; 0</code>: la página está en uso y no se puede desalojar.","<code>lastUsedTick</code>: base de la política LRU.","<code>AccessMode</code> = READ | WRITE."]},
+  attr:["frameID : int","page : DataBlock","pageID : int  (−1 = vacío)","isDirty : bool","pinCount : int","mode : AccessMode"], met:[],
+  det:["<b>Estado actual:</b> aún no existe como estructura; hoy cada slot del buffer es un <code>DataBlock</code> con <code>blockID = −1</code> cuando está libre.","<code>isDirty</code>: se modificó en RAM; al desalojar hay que escribirlo a disco.","<code>pinCount &gt; 0</code>: la página está en uso y no se puede desalojar.","El LRU no vive aquí: lo llevan las matrices <code>loadedMatrix</code> y <code>lruMatrix</code> del BufferPool.","<code>AccessMode</code> = READ | WRITE."]},
  {id:"node", n:"BPlusTreeNode", st:"1 nodo = 1 página", pos:[4,1], s:0,
   attr:["pageID : int","isLeaf : bool","keys : vector&lt;int&gt;","children : vector&lt;int&gt;  // internos","values : vector&lt;int&gt;  // hojas: blockID","nextLeafID : int"], met:[],
   det:["<b>Cambio de diseño:</b> las hojas guardan pares <code>userID → blockID</code> en vez de copiar los registros. Así no se duplican datos del .bin.","Se serializa dentro de un DataBlock de tipo INDEX_*.","<code>nextLeafID</code> enlaza las hojas para las búsquedas por rango."]},
@@ -93,9 +115,9 @@ var C = [
   attr:[], met:["writeBlock(out, blk, blockSize) : bool","readBlock(in, out, blockID, blockSize, maxRec) : bool","ConvertTsvToBin(tsv, bin, blockSize, maxRec) : bool","AllocatePage(bin) : int"],
   det:["Única clase que toca el disco.","<code>offset = blockID × blockSize</code>, con <code>seekg/seekp</code> leyendo o escribiendo exactamente un bloque.","<code>AllocatePage</code> añade un bloque nuevo al final (lo usa el B+ al dividir nodos)."]},
  {id:"buf", n:"BufferPool", st:"memoria RAM · política LRU", pos:[2,2], span:2, s:1,
-  attr:["bufferSize : size_t","blockSize : size_t","frameCount : size_t  = bufferSize / blockSize","frames : vector&lt;Frame&gt;","pageTable : map&lt;pageID, frameIdx&gt;"],
-  met:["✓ Init(...) : void","✓ RequestPage(pageID) : carga bloque (sin LRU aún)","✓ ReleasePage(pageID) : quita bloque","✓ ShowStatus() : void","✓ ShowBlockRecords(blockID) : void","○ RequestPage(pageID, mode) con LRU","○ FlushPage(pageID) · FlushAll()"],
-  det:["<b>Estado actual:</b> existe como funciones sueltas (<code>InitBuffer</code>, <code>LoadBlockToBuffer</code>, <code>RemoveBlockFromBuffer</code>, <code>ShowBufferStatus</code>, <code>ShowLoadedBlockRecords</code>) con capacidad fija <code>BUFFER_CAPACITY = 6</code>. <b>Falta:</b> tamaño de buffer ingresado por el usuario, política LRU, modo READ/WRITE y dirty/pin.","Si la página no está en <code>pageTable</code> (<i>miss</i>) y no hay frame libre, se elige víctima con <b>LRU</b>: el frame sin pin con menor <code>lastUsedTick</code>.","Si la víctima está <code>isDirty</code>, se hace <code>FlushPage</code> antes de reemplazarla.","Cada <code>RequestPage</code> actualiza el tick del frame (contador global <code>currentTick</code>).","Privados: <code>PickVictimLRU()</code>, <code>EvictFrame()</code>, <code>LoadPageIntoFrame()</code>, <code>TouchFrame()</code>.","LRU vs. “pila”: una pila sería LIFO; LRU expulsa lo menos recientemente usado."]},
+  attr:["bufferSize : size_t","blockSize : size_t","frameCount : size_t  = bufferSize / blockSize","frames : vector&lt;Frame&gt;","loadedMatrix : vector&lt;bool&gt;  // ¿frame ocupado?","lruMatrix : vector&lt;size_t&gt;  // tick del último uso","currentTick : size_t","pageTable : map&lt;pageID, frameIdx&gt;","hits, misses : int"],
+  met:["BufferPool(bufferSize, blockSize, binPath)  // constructor","RequestPage(pageID, mode) : Frame*","ReleasePage(pageID, dirty) : void","FlushPage(pageID) : bool","FlushAll() : void","IsLoaded(pageID) : bool","ShowStatus() : void","ShowPageRecords(pageID) : void"],
+  det:["<b>Estado actual:</b> existe como funciones sueltas (<code>InitBuffer</code>, <code>LoadBlockToBuffer</code>, <code>RemoveBlockFromBuffer</code>, <code>ShowBufferStatus</code>, <code>ShowLoadedBlockRecords</code>) con capacidad fija <code>BUFFER_CAPACITY = 6</code>. <b>Falta:</b> tamaño de buffer ingresado por el usuario, política LRU, modo READ/WRITE y dirty/pin.","Si la página no está en <code>pageTable</code> (<i>miss</i>) y no hay frame libre, se elige víctima con <b>LRU</b>: el frame sin pin con menor valor en <code>lruMatrix</code>.","Si la víctima está <code>isDirty</code>, se hace <code>FlushPage</code> antes de reemplazarla.","Cada <code>RequestPage</code> guarda <code>currentTick</code> en <code>lruMatrix[frame]</code> y lo incrementa; <code>loadedMatrix[frame]</code> dice si el frame tiene una página. <code>hits/misses</code> sirven para mostrar la efectividad del buffer.","Privados: <code>PickVictimLRU()</code>, <code>EvictFrame()</code>, <code>LoadPageIntoFrame()</code>, <code>TouchFrame()</code>.","LRU vs. “pila”: una pila sería LIFO; LRU expulsa lo menos recientemente usado."]},
  {id:"bpt", n:"BPlusTree", st:"índice primario sobre userID", pos:[4,2], s:0,
   attr:["rootPageID : int","order : int  // fanout","buffer : BufferPool&amp;"],
   met:["Build() : void","Insert(key, rec) : void","Search(key) : int  // blockID","RangeSearch(lo, hi) : vector&lt;int&gt;","Remove(key) : bool","Print() : void"],
@@ -141,13 +163,13 @@ function draw(){
     if(ox2-ox>20){vert=true;var x=(ox+ox2)/2;x1=x2=x;if(a.b<b.t){y1=a.b;y2=b.t}else{y1=a.t;y2=b.b}}
     else{vert=false;var oy=Math.max(a.t,b.t),oy2=Math.min(a.b,b.b),y=(oy+oy2)/2;y1=y2=y;if(a.r<b.l){x1=a.r;x2=b.l}else{x1=a.l;x2=b.r}}
     var l=ns("line",{x1:x1,y1:y1,x2:x2,y2:y2,stroke:"var(--ln)","stroke-width":1.6,"class":"r"});
-    if(r[2]=="comp")l.setAttribute("marker-start","url(#dia)");
+    if(r[2]=="comp")l.setAttribute("marker-end","url(#diaE)");
     if(r[2]=="dep"){l.setAttribute("stroke-dasharray","6 4");l.setAttribute("marker-end","url(#arr)")}
     svg.appendChild(l);
     function tx(t,x,y,anc){if(!t)return;var e=ns("text",{x:x,y:y,"class":"r mult","text-anchor":anc});e.textContent=t;svg.appendChild(e)}
     var mx=(x1+x2)/2,my=(y1+y2)/2;
     if(vert){tx(r[3],x1+8,y2+(y2>y1?-8:14),"start");tx(r[4],x1+8,my+4,"start")}
-    else{tx(r[3],x1+(x2>x1?4:-4),y1-8,x2>x1?"start":"end");tx(r[4],mx,y1-8,"middle")}
+    else{tx(r[3],x1+(x2>x1?4:-4),y1-8,x2>x1?"start":"end");tx(r[4],mx,y1+15,"middle")}
   });
 }
 window.addEventListener("load",draw); window.addEventListener("resize",draw);
